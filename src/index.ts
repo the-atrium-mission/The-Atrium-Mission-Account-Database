@@ -15,6 +15,9 @@
 import { emailHash, encrypt, hmacHex, isoWeek } from './crypto';
 import { validateHandle } from './handles';
 import { MAX_CODE_INPUT, normalizeCode } from './invites';
+import { verifyAccess } from './access';
+import { adminHandles, adminMintInvites, adminPage, adminStats } from './admin';
+import { accountsPage } from './page';
 import { IpRateLimiter, ipBucketId } from './ratelimit';
 
 export { IpRateLimiter };
@@ -26,6 +29,9 @@ export interface Env {
   EMAIL_AES_KEY: string;       // base64, exactly 32 bytes
   INVITE_HMAC_PEPPER: string;  // base64, 32 bytes. Also held on the founder workstation.
   TURNSTILE_SECRET: string;
+  TURNSTILE_SITE_KEY: string;  // public by design — rendered into the page
+  ACCESS_TEAM_DOMAIN: string;  // e.g. atrium.cloudflareaccess.com
+  ACCESS_AUD: string;          // Access application audience tag
   ALLOWED_ORIGIN: string;      // e.g. https://theatriummission.com
 }
 
@@ -365,6 +371,67 @@ async function handleSignup(request: Request, env: Env, ip: string): Promise<Res
 }
 
 /* ------------------------------------------------------------------ */
+/* Admin — behind Cloudflare Access                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Every /admin route verifies the Access JWT signature before doing anything.
+ *
+ * Access already blocks unauthenticated requests at the edge, so this is the
+ * second layer: it means a forged Cf-Access-Jwt-Assertion header is worthless
+ * even if a request somehow reaches the Worker without passing through Access.
+ */
+async function handleAdmin(request: Request, env: Env, url: URL): Promise<Response> {
+  const id = await verifyAccess(request, env.ACCESS_TEAM_DOMAIN, env.ACCESS_AUD);
+  if (!id) {
+    // Deliberately terse. An attacker probing this endpoint learns only that
+    // it exists — which Access already reveals — and nothing about why.
+    return json({ error: 'Unauthorized.' }, 403);
+  }
+
+  if (url.pathname === '/admin' && request.method === 'GET') {
+    return new Response(adminPage(id.email), {
+      headers: {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store',
+        'content-security-policy':
+          "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; " +
+          "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      },
+    });
+  }
+
+  if (url.pathname === '/admin/api/stats' && request.method === 'GET') {
+    return json(await adminStats(env.DB));
+  }
+
+  if (url.pathname === '/admin/api/handles' && request.method === 'GET') {
+    const limit = Number(url.searchParams.get('limit') ?? '100');
+    const offset = Number(url.searchParams.get('offset') ?? '0');
+    return json(await adminHandles(env.DB, limit, offset));
+  }
+
+  if (url.pathname === '/admin/api/invites' && request.method === 'POST') {
+    const body = await readJsonBody(request);
+    if (!body) return json({ error: 'Malformed request.' }, 400);
+
+    const result = await adminMintInvites(
+      env.DB,
+      env.INVITE_HMAC_PEPPER,
+      Number(body.count),
+      str(body.note, 40),
+    );
+    if ('error' in result) return json(result, 400);
+
+    // Who minted what, and how many. Never the codes themselves.
+    console.log(`invites minted: ${result.codes.length} by ${id.email}`);
+    return json(result, 201);
+  }
+
+  return json({ error: 'Not found.' }, 404);
+}
+
+/* ------------------------------------------------------------------ */
 /* Entry                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -388,7 +455,37 @@ export default {
 
     let res: Response;
     try {
-      if (url.pathname === '/api/check-handle' && request.method === 'GET') {
+      // /admin is matched first so no public route can ever shadow it.
+      if (url.pathname.startsWith('/admin')) {
+        res = await handleAdmin(request, env, url);
+
+      // The page lives at the root of the auth origin. /accounts is kept as a
+      // permanent redirect so any link already pointing at the old path — in an
+      // email, a post, someone's bookmark — does not break.
+      } else if (url.pathname === '/accounts' && request.method === 'GET') {
+        res = Response.redirect(new URL('/', url).toString(), 301);
+      } else if (url.pathname === '/' && request.method === 'GET') {
+        res = new Response(accountsPage(env.TURNSTILE_SITE_KEY), {
+          headers: {
+            'content-type': 'text/html; charset=utf-8',
+            // The page is public, but it must never be cached with a stale
+            // Turnstile key, and it must never be framed.
+            'cache-control': 'no-store',
+            'content-security-policy': [
+              "default-src 'none'",
+              "script-src 'unsafe-inline' https://challenges.cloudflare.com",
+              "style-src 'unsafe-inline' https://fonts.googleapis.com",
+              "font-src https://fonts.gstatic.com",
+              "img-src 'self' data:",
+              "connect-src 'self'",
+              "frame-src https://challenges.cloudflare.com",
+              "form-action 'none'",
+              "base-uri 'none'",
+              "frame-ancestors 'none'",
+            ].join('; '),
+          },
+        });
+      } else if (url.pathname === '/api/check-handle' && request.method === 'GET') {
         res = await handleCheck(request, env, ip);
       } else if (url.pathname === '/api/signup' && request.method === 'POST') {
         res = await handleSignup(request, env, ip);

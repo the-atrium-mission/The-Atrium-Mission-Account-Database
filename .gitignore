@@ -12,6 +12,8 @@ unseal*
 *shamir*
 
 # === DATABASE CONTENT =====================================================
+# Dumps contain real user rows. Handles and interest flags are plaintext
+# even though emails are encrypted.
 *.sqlite
 *.sqlite3
 *.db
@@ -24,24 +26,37 @@ dumps/
 # === WRANGLER / CLOUDFLARE LOCAL STATE ====================================
 .wrangler/
 .mf/
+worker/
+CLAUDE.md
 
 # === DEPENDENCIES / BUILD =================================================
 node_modules/
 dist/
 build/
-*.tsbuildinfo
-
-# === INVITE CODE OUTPUT ===================================================
-out/
-invites-*.sql
+.tsbuildinfo
+*.tgz
 
 # === LOGS =================================================================
 *.log
 npm-debug.log*
+yarn-error.log*
 
 # === EDITOR / OS ==========================================================
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/settings.json
+.vscode/launch.json
 *.swp
+
+# schema.sql is intentionally NOT ignored — it is structure, not data.
+
+# === INVITE CODE OUTPUT ===================================================
+# Contains code hashes; the generator also prints plaintext codes to stdout.
+out/
+invites-*.sql
+
+# === LOCAL ONLY ===========================================================
+# These files are for local development and should not be committed.
+CLAUDE.md
+.claude/

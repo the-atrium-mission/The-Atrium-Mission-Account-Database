@@ -9,8 +9,16 @@ compatibility_date = "2026-01-15"
 # namespace is scanned continuously. The custom route is the only way in.
 workers_dev = false
 
+# Dedicated auth origin. Everything on this hostname belongs to this Worker —
+# the signup page and the endpoints it calls, nothing else.
+#
+# Separate origin from the marketing site on purpose:
+#   - No route-specificity contest with theatriummission.com/*
+#   - CSP, WAF rules, and rate limits apply to auth traffic only
+#   - Phase 1: session cookies scope to this host and are never sent to the
+#     marketing site. Retrofitting that later is painful; adopting it now is free.
 [[routes]]
-pattern = "theatriummission.com/api/*"
+pattern = "accounts.theatriummission.com/*"
 zone_name = "theatriummission.com"
 
 # --- Observability --------------------------------------------------------
@@ -25,7 +33,17 @@ enabled = false
 
 # Public, non-secret config.
 [vars]
-ALLOWED_ORIGIN = "https://theatriummission.com"
+ALLOWED_ORIGIN = "https://accounts.theatriummission.com"
+
+# Turnstile SITE key is public by design — it is rendered into the page HTML.
+# The matching SECRET key is a Workers Secret and never appears here.
+TURNSTILE_SITE_KEY = "PASTE_TURNSTILE_SITE_KEY_HERE"
+
+# Cloudflare Access — gates /admin. Neither value is a secret: the team domain
+# is public, and the audience tag is only meaningful alongside a valid
+# Cloudflare-signed JWT. Both are verified server-side on every admin request.
+ACCESS_TEAM_DOMAIN = "PASTE_TEAM_DOMAIN_HERE"   # e.g. atrium.cloudflareaccess.com
+ACCESS_AUD = "PASTE_ACCESS_AUD_TAG_HERE"
 
 # --- D1 -------------------------------------------------------------------
 # Create first:  wrangler d1 create atrium-prealpha
