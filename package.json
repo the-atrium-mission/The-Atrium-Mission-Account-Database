@@ -12,8 +12,8 @@
     "db:invites": "wrangler d1 execute atrium-prealpha --file=./migrations/002_invites.sql --remote"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250109.0",
+    "@cloudflare/workers-types": "^5.20260719.1",
     "typescript": "^5.7.0",
-    "wrangler": "^3.99.0"
+    "wrangler": "^4.112.0"
   }
 }
