@@ -1,0 +1,19 @@
+{
+  "name": "atrium-accounts",
+  "private": true,
+  "version": "0.5.0",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "db:local": "wrangler d1 execute atrium-prealpha --file=./schema.sql --local",
+    "db:remote": "wrangler d1 execute atrium-prealpha --file=./schema.sql --remote",
+    "invites": "node scripts/gen-invites.mjs",
+    "db:invites": "wrangler d1 execute atrium-prealpha --file=./migrations/002_invites.sql --remote"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "typescript": "^5.7.0",
+    "wrangler": "^3.99.0"
+  }
+}

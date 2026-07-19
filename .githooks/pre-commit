@@ -1,0 +1,61 @@
+#!/bin/sh
+#
+# Pre-commit hook — blocks commits containing detected secrets.
+#
+# Lives in .githooks/ (versioned, shared) rather than .git/hooks/ (local only,
+# never committed). Activate once per clone:
+#
+#     git config core.hooksPath .githooks
+#     chmod +x .githooks/pre-commit
+#
+# Scans ONLY staged changes, so it is fast and does not re-scan history.
+#
+# NOTE ON LIMITS: gitleaks matches known credential shapes (AWS keys, GitHub
+# tokens, private key blocks). A raw `openssl rand -base64 32` pepper looks
+# like any other base64 string and will NOT be caught by pattern matching.
+# The .gitignore and the staged-diff review remain the primary defence for
+# those. This hook is the third layer, not the first.
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks not found on PATH."
+  echo "Install it, or bypass ONCE with: git commit --no-verify"
+  exit 1
+fi
+
+echo "pre-commit: scanning staged changes..."
+
+if ! gitleaks protect --staged --redact --verbose; then
+  echo ""
+  echo "=================================================="
+  echo " COMMIT BLOCKED — possible secret in staged files."
+  echo "=================================================="
+  echo ""
+  echo " Do NOT use --no-verify to get around this unless"
+  echo " you are certain it is a false positive."
+  echo ""
+  echo " To unstage a file:   git restore --staged <file>"
+  echo " To inspect:          git diff --staged"
+  echo ""
+  exit 1
+fi
+
+# Second layer: hard block on filenames that must never be committed,
+# regardless of content. Catches the high-entropy secrets gitleaks cannot
+# pattern-match.
+BLOCKED=$(git diff --cached --name-only | grep -E '(^|/)(\.dev\.vars|\.env)|\.(key|pem|asc|gpg|p12|sqlite|sqlite3|db|dump)$|^out/' || true)
+
+if [ -n "$BLOCKED" ]; then
+  echo ""
+  echo "=================================================="
+  echo " COMMIT BLOCKED — forbidden file(s) staged:"
+  echo "=================================================="
+  echo "$BLOCKED"
+  echo ""
+  echo " These must never enter history. Unstage with:"
+  echo "   git restore --staged <file>"
+  echo ""
+  exit 1
+fi
+
+echo "pre-commit: clean."
+exit 0

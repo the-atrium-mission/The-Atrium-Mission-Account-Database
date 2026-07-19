@@ -1,0 +1,47 @@
+# === SECRETS — never commit ===============================================
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+*.key
+*.pem
+*.asc
+*.gpg
+*.p12
+unseal*
+*shamir*
+
+# === DATABASE CONTENT =====================================================
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.sql.gz
+*.sql.bak
+backup/
+dumps/
+
+# === WRANGLER / CLOUDFLARE LOCAL STATE ====================================
+.wrangler/
+.mf/
+
+# === DEPENDENCIES / BUILD =================================================
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# === INVITE CODE OUTPUT ===================================================
+out/
+invites-*.sql
+
+# === LOGS =================================================================
+*.log
+npm-debug.log*
+
+# === EDITOR / OS ==========================================================
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/settings.json
+*.swp

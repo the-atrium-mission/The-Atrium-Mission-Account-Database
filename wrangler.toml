@@ -1,0 +1,64 @@
+name = "atrium-accounts"
+main = "src/index.ts"
+compatibility_date = "2026-01-15"
+
+# --- Exposure control -----------------------------------------------------
+# workers.dev is DISABLED. Left on, this Worker is reachable at
+# atrium-accounts.<subdomain>.workers.dev, which bypasses every WAF rule, bot
+# policy, and firewall rule attached to theatriummission.com. That subdomain
+# namespace is scanned continuously. The custom route is the only way in.
+workers_dev = false
+
+[[routes]]
+pattern = "theatriummission.com/api/*"
+zone_name = "theatriummission.com"
+
+# --- Observability --------------------------------------------------------
+# Cloudflare's Workers logging captures request metadata INCLUDING client IP.
+# We publicly claim we do not collect IP addresses. Leaving this on would make
+# that claim false via our vendor, regardless of what our code stores.
+#
+# Also confirm Logpush is off for this Worker in the dashboard — it is a
+# separate setting and this key does not control it.
+[observability]
+enabled = false
+
+# Public, non-secret config.
+[vars]
+ALLOWED_ORIGIN = "https://theatriummission.com"
+
+# --- D1 -------------------------------------------------------------------
+# Create first:  wrangler d1 create atrium-prealpha
+# Then paste the returned database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "atrium-prealpha"
+database_id = "PASTE_DATABASE_ID_HERE"
+
+# --- Durable Objects (rate limiting) --------------------------------------
+[[durable_objects.bindings]]
+name = "RATE_LIMITER"
+class_name = "IpRateLimiter"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["IpRateLimiter"]
+
+# --- Secrets --------------------------------------------------------------
+# NEVER put these in this file. Set them with wrangler secret put.
+#
+#   wrangler secret put EMAIL_HMAC_PEPPER    # 32B base64 — NEVER leaves Cloudflare
+#   wrangler secret put EMAIL_AES_KEY        # 32B base64 — NEVER leaves Cloudflare
+#   wrangler secret put INVITE_HMAC_PEPPER   # 32B base64 — also on founder workstation
+#   wrangler secret put TURNSTILE_SECRET
+#
+# Generate each:  openssl rand -base64 32
+#
+# INVITE_HMAC_PEPPER is separate on purpose. The invite generator runs locally
+# and needs its pepper in the shell. If that were EMAIL_HMAC_PEPPER, every
+# code-generation run would put the secret protecting every stored email hash
+# onto a laptop. Separated, a workstation compromise yields "can mint invites"
+# instead of "can enumerate every registered email".
+#
+# All four are Phase 0.5 only. They are destroyed after the D1 -> Postgres
+# migration completes and never become the Phase 1 KEK. Spec §14.
