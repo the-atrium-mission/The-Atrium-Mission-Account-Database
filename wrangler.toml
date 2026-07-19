@@ -37,13 +37,13 @@ ALLOWED_ORIGIN = "https://accounts.theatriummission.com"
 
 # Turnstile SITE key is public by design — it is rendered into the page HTML.
 # The matching SECRET key is a Workers Secret and never appears here.
-TURNSTILE_SITE_KEY = "PASTE_TURNSTILE_SITE_KEY_HERE"
+TURNSTILE_SITE_KEY = "0x4AAAAAAD5TKiHBvoIifUln"
 
 # Cloudflare Access — gates /admin. Neither value is a secret: the team domain
 # is public, and the audience tag is only meaningful alongside a valid
 # Cloudflare-signed JWT. Both are verified server-side on every admin request.
-ACCESS_TEAM_DOMAIN = "PASTE_TEAM_DOMAIN_HERE"   # e.g. atrium.cloudflareaccess.com
-ACCESS_AUD = "PASTE_ACCESS_AUD_TAG_HERE"
+ACCESS_TEAM_DOMAIN = "the-atrium-mission.cloudflareaccess.com"
+ACCESS_AUD = "2d91d2837745f638363344e7bf0ee0fd7d6b075a901e0e102e731273213bc997"
 
 # --- D1 -------------------------------------------------------------------
 # Create first:  wrangler d1 create atrium-prealpha
@@ -51,7 +51,7 @@ ACCESS_AUD = "PASTE_ACCESS_AUD_TAG_HERE"
 [[d1_databases]]
 binding = "DB"
 database_name = "atrium-prealpha"
-database_id = "PASTE_DATABASE_ID_HERE"
+database_id = "70e1043b-13a3-41f0-ab24-1a0c92e28f24"
 
 # --- Durable Objects (rate limiting) --------------------------------------
 [[durable_objects.bindings]]

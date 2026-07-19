@@ -24,7 +24,7 @@ fi
 
 echo "pre-commit: scanning staged changes..."
 
-if ! gitleaks protect --staged --redact --verbose; then
+if ! gitleaks protect --staged --redact --verbose --config .gitleaks.toml; then
   echo ""
   echo "=================================================="
   echo " COMMIT BLOCKED — possible secret in staged files."

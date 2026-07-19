@@ -1,0 +1,46 @@
+# gitleaks configuration
+#
+# Extends the default ruleset and allowlists specific values that are
+# identifiers rather than credentials.
+#
+# RULE FOR ADDING ENTRIES HERE:
+# Only allowlist a value if compromising it grants an attacker nothing on its
+# own. If a value would be useful to someone who stole it, it does not belong
+# in this file — it belongs in `wrangler secret put`.
+#
+# Every entry must say WHY it is safe. An undocumented allowlist entry is
+# indistinguishable from someone silencing a real finding.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+  [rules.allowlist]
+  description = "Cloudflare Access Application Audience (AUD) tag"
+  # 64-char hex. Identifies which Access application a JWT was issued for.
+  # Forging a token carrying this value requires Cloudflare's private signing
+  # key, which is not obtainable. Knowing the AUD grants nothing: the Worker
+  # verifies the JWT signature, issuer, and expiry independently.
+  # Cloudflare documents it as configuration, not a credential.
+  regexes = ['''ACCESS_AUD\s*=\s*"[a-f0-9]{64}"''']
+  paths = ['''wrangler\.toml''']
+
+[allowlist]
+description = "Non-secret configuration and generated placeholders"
+
+  # Placeholder strings in template/config files, pre-substitution.
+  regexTarget = "match"
+  regexes = [
+    '''PASTE_[A-Z_]+_HERE''',
+    # Cloudflare's public Turnstile test keys, used for local development.
+    # Published by Cloudflare specifically to always pass. Not our keys.
+    '''1x00000000000000000000AA''',
+    '''1x0000000000000000000000000000000AA''',
+  ]
+
+  paths = [
+    # Lockfiles contain integrity hashes, not secrets.
+    '''package-lock\.json''',
+  ]
